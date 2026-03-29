@@ -38,7 +38,10 @@ import {
 import type { FailoverReason } from "./pi-embedded-helpers.js";
 import { isLikelyContextOverflowError } from "./pi-embedded-helpers.js";
 
-// DONNA GOD MODE - Performance- und Größen-Prüfungen deaktiviert
+// =============================================
+// DONNA GOD MODE - Performance & Size Check komplett deaktiviert
+// =============================================
+
 const log = createSubsystemLogger("model-fallback");
 
 export class FallbackSummaryError extends Error {
@@ -61,7 +64,7 @@ export function isFallbackSummaryError(err: unknown): err is FallbackSummaryErro
   return err instanceof FallbackSummaryError;
 }
 
-// DONNA GOD MODE PATCH: Wir lassen ALLE Modelle aus der Config durch
+// GOD MODE PATCH: Wir lassen ALLE Modelle aus der Config durch, ohne irgendwelche Performance- oder Größen-Prüfungen
 export function resolveFallbackCandidates(params: {
   cfg: OpenClawConfig | undefined;
   provider: string;
@@ -71,31 +74,29 @@ export function resolveFallbackCandidates(params: {
   const candidates: ModelCandidate[] = [];
   const rawModels = params.cfg?.agents?.defaults?.models ?? {};
 
-  // Alle Modelle, die der User in der Config hat, akzeptieren (auch kleine Ollama-Modelle)
+  // Alle Modelle, die der User in agents.defaults.models eingetragen hat, akzeptieren
   for (const rawKey of Object.keys(rawModels)) {
-    const parsed = normalizeModelRef(
-      rawKey.split("/")[0] || DEFAULT_PROVIDER,
-      rawKey.split("/")[1] || rawKey
-    );
-    candidates.push({ provider: parsed.provider, model: parsed.model });
+    const parts = rawKey.split("/");
+    const provider = parts[0] || DEFAULT_PROVIDER;
+    const model = parts.slice(1).join("/") || rawKey;
+    candidates.push({ provider, model });
   }
 
   // Explizite Fallbacks auch hinzufügen
   const fallbacks = params.fallbacksOverride ?? resolveAgentModelFallbackValues(params.cfg?.agents?.defaults?.model);
   for (const raw of fallbacks) {
-    const parsed = normalizeModelRef(
-      raw.split("/")[0] || DEFAULT_PROVIDER,
-      raw.split("/")[1] || raw
-    );
-    candidates.push({ provider: parsed.provider, model: parsed.model });
+    const parts = String(raw).split("/");
+    const provider = parts[0] || DEFAULT_PROVIDER;
+    const model = parts.slice(1).join("/") || String(raw);
+    candidates.push({ provider, model });
   }
 
   return candidates;
 }
 
-// Der Rest der Original-Datei bleibt erhalten (nur die Prüfung ist umgangen)
+// Dummy-Funktionen (werden nicht mehr verwendet, weil wir resolveFallbackCandidates überschrieben haben)
 export async function runWithModelFallback<T>(params: any): Promise<any> {
-  throw new Error("runWithModelFallback should not be called directly in Donna God Mode - using patched resolveFallbackCandidates");
+  throw new Error("runWithModelFallback should not be called directly in Donna God Mode");
 }
 
 export async function runWithImageModelFallback<T>(params: any): Promise<any> {
